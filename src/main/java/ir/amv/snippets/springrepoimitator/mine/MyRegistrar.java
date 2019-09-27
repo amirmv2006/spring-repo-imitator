@@ -13,6 +13,7 @@ import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.core.type.AnnotationMetadata;
 import org.springframework.core.type.classreading.MetadataReader;
 import org.springframework.core.type.classreading.MetadataReaderFactory;
+import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.core.type.filter.AssignableTypeFilter;
 
 import java.io.IOException;
@@ -26,6 +27,7 @@ public class MyRegistrar
     public MyRegistrar() {
         super(false);
         addIncludeFilter(new InterfaceTypeFilter(IMyClass.class));
+        addIncludeFilter(new AnnotationTypeFilter(MyAnnot.class));
     }
 
     @Override
@@ -36,7 +38,8 @@ public class MyRegistrar
             try {
                 Class aClass = Class.forName(beanClassName);
                 MyAnnot annotation = AnnotationUtils.findAnnotation(aClass, MyAnnot.class);
-                if (annotation == null || !beanDefinitionRegistry.containsBeanDefinition(annotation.beanName())) {
+                assert annotation != null;
+                if (!beanDefinitionRegistry.containsBeanDefinition(annotation.beanName())) {
                     ProxyFactory proxyFactory = new ProxyFactory();
                     proxyFactory.setTarget(new Object());
                     proxyFactory.setInterfaces(aClass);
@@ -50,7 +53,7 @@ public class MyRegistrar
                     Object bean = proxyFactory.getProxy();
                     BeanDefinitionBuilder b =
                             BeanDefinitionBuilder.genericBeanDefinition(aClass, () -> bean);
-                    String beanName = annotation == null ? aClass.getSimpleName() : annotation.beanName();
+                    String beanName = annotation.beanName();
                     beanDefinitionRegistry.registerBeanDefinition(beanName, b.getBeanDefinition());
                 }
             } catch (ClassNotFoundException e) {
@@ -66,17 +69,10 @@ public class MyRegistrar
 
     private static class InterfaceTypeFilter extends AssignableTypeFilter {
 
-        /**
-         * @param targetType
-         */
         public InterfaceTypeFilter(Class<?> targetType) {
             super(targetType);
         }
 
-        /*
-         * (non-Javadoc)
-         * @see org.springframework.core.type.filter.AbstractTypeHierarchyTraversingFilter#match(org.springframework.core.type.classreading.MetadataReader, org.springframework.core.type.classreading.MetadataReaderFactory)
-         */
         @Override
         public boolean match(MetadataReader metadataReader, MetadataReaderFactory metadataReaderFactory)
                 throws IOException {
