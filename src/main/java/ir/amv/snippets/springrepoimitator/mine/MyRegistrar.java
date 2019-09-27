@@ -1,12 +1,12 @@
 package ir.amv.snippets.springrepoimitator.mine;
 
 import ir.amv.snippets.springrepoimitator.IMyClass;
+import org.aopalliance.intercept.MethodInterceptor;
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.support.BeanDefinitionBuilder;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
-import org.springframework.beans.factory.support.GenericBeanDefinition;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 import org.springframework.context.annotation.ImportBeanDefinitionRegistrar;
 import org.springframework.core.annotation.AnnotationUtils;
@@ -14,9 +14,9 @@ import org.springframework.core.type.AnnotationMetadata;
 import org.springframework.core.type.classreading.MetadataReader;
 import org.springframework.core.type.classreading.MetadataReaderFactory;
 import org.springframework.core.type.filter.AssignableTypeFilter;
-import org.springframework.data.repository.util.ClassUtils;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Set;
 
 public class MyRegistrar
@@ -34,17 +34,24 @@ public class MyRegistrar
         for (BeanDefinition candidateComponent : candidateComponents) {
             String beanClassName = candidateComponent.getBeanClassName();
             try {
-                Set<String> annotationTypes = annotationMetadata.getAnnotationTypes();
                 Class aClass = Class.forName(beanClassName);
                 MyAnnot annotation = AnnotationUtils.findAnnotation(aClass, MyAnnot.class);
-                if (annotation == null || !beanDefinitionRegistry.containsBeanDefinition(annotation.value())) {
+                if (annotation == null || !beanDefinitionRegistry.containsBeanDefinition(annotation.beanName())) {
                     ProxyFactory proxyFactory = new ProxyFactory();
                     proxyFactory.setTarget(new Object());
                     proxyFactory.setInterfaces(aClass);
+                    proxyFactory.addAdvice((MethodInterceptor) methodInvocation -> {
+                        System.out.println("Called:");
+                        System.out.println(methodInvocation.getMethod());
+                        System.out.println("args:");
+                        System.out.println(Arrays.toString(methodInvocation.getArguments()));
+                        return null;
+                    });
                     Object bean = proxyFactory.getProxy();
                     BeanDefinitionBuilder b =
                             BeanDefinitionBuilder.genericBeanDefinition(aClass, () -> bean);
-                    beanDefinitionRegistry.registerBeanDefinition(aClass.getSimpleName(), b.getBeanDefinition());
+                    String beanName = annotation == null ? aClass.getSimpleName() : annotation.beanName();
+                    beanDefinitionRegistry.registerBeanDefinition(beanName, b.getBeanDefinition());
                 }
             } catch (ClassNotFoundException e) {
                 e.printStackTrace();
